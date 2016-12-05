@@ -66,6 +66,8 @@ move_to_x_y:
 	lw	$s2, BOT_Y
 	move	$s3, $a0
 	move	$s4, $a1
+	bge	$s3, 300, end_move_to_x_y
+	bge	$s4, 300, end_move_to_x_y
 angle_X:
 	ble	$s3, $s1, turn_X
 	li	$s0, 0
@@ -97,12 +99,14 @@ turn_Y:
 	li	$s0, 1
 	sw	$s0, ANGLE_CONTROL
 move_Y:
-	beq	$s2, $s4, end
+	beq	$s2, $s4, end_move_to_x_y
 	li	$s0, 10
 	sw	$s0, VELOCITY
 	lw	$s2, BOT_Y
 	j	move_Y
-end:
+end_move_to_x_y:
+	li	$s0, 0
+	sw	$s0, VELOCITY
 	lw	$ra, 0($sp)
 	lw	$s0, 4($sp)
 	lw	$s1, 8($sp)
@@ -111,6 +115,65 @@ end:
 	lw	$s4, 20($sp)
 	add	$sp, $sp, 24
 	jr	$ra
+#######################################FUNCTION########move_to_x_y###############
+scan_plant:
+	la	$t0, tile_data			
+	sw	$t0, TILE_SCAN
+	move	$v0, $t0
+	jr	$ra
+#######################################FUNCTION########scan_plant################
+plant_seed:
+	sub	$sp, $sp, 16
+	sw	$ra, 0($sp)
+	sw	$s0, 4($sp)
+	sw	$s1, 8($sp)
+	sw	$s2, 12($sp)
+	lw	$s1, BOT_X
+	lw	$s2, BOT_Y
+	jal	scan_plant
+	li	$s0, 30
+	div	$t0, $s1, $s0
+	div	$t1, $s2, $s0
+	mul	$t1, $t1, 10
+	add	$t0, $t0, $t1
+	sll	$t0, $t0, 4
+	add	$t0, $t0, $v0
+	lw	$t0, 0($t0)
+	bne	$t0, $zero, error
+	sw	$0, SEED_TILE
+	li	$v0, 1
+	j	end_plant_seed
+error:
+	li	$v0, 0
+end_plant_seed:
+	lw	$ra, 0($sp)
+	lw	$s0, 4($sp)
+	lw	$s1, 8($sp)
+	lw	$s2, 12($sp)
+	add	$sp, $sp, 16
+	jr	$ra
+#######################################FUNCTION########plant_seed################
+seed_tile:
+	sub	$sp, $sp, 4
+	sw	$ra, 0($sp)
+	jal	move_to_x_y
+	jal	plant_seed
+	bne	$v0, 1, seed_next
+	j	end_seed_tile
+seed_next:
+	bge	$a0, 270, seed_next_y
+seed_next_x:
+	add	$a0, $a0, 30
+	jal	seed_tile
+	j	end_seed_tile
+seed_next_y:
+	add	$a1, $a1, 30
+	jal	seed_tile
+end_seed_tile:
+	lw	$ra, 0($sp)
+	add	$sp, $sp, 4
+	jr	$ra
+#######################################FUNCTION########seed_tile######
 ###################################################################################
 main:
 	# put your code here :)
@@ -121,13 +184,15 @@ main:
 	mtc0	$t4, $12		# 	set interrupt mask (Status register)
 	lw	$s1, BOT_X
 	lw	$s2, BOT_Y
-	li	$a0, 150
-	li	$a1, 150
-	jal	move_to_x_y
-	li	$s0, 0
-	sw	$s0, VELOCITY	
-infinite: 
-	j	infinite
+try_seed:
+	li	$a0, 15
+	li	$a1, 15
+	jal	seed_tile
+	li	$a0, 15
+	li	$a1, 45
+	jal	seed_tile
+infinite:
+	j	try_seed
 	# request on_fire interrupt
 	
 
